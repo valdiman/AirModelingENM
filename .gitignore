@@ -1,58 +1,42 @@
-# Ignore everything
-/*
+# Ignore RStudio project files
+*.Rproj
 
-# But allow R scripts in the root
-!/*.R
+# Ignore R history files
+*.Rhistory
+*.Rapp.history
 
-# But allow R scripts in subdirectories
-!**/*.R
+# Ignore R session data
+*.RData
+*.RDataTmp
+*.Ruserdata
 
-# History files
-.Rhistory
-.Rapp.history
-
-# Session Data files
-.RData
-.RDataTmp
-
-# User-specific files
-.Ruserdata
-
-# Example code in package build process
-*-Ex.R
-
-# Output files from R CMD build
+# Ignore output files from R CMD build and check
 /*.tar.gz
-
-# Output files from R CMD check
 /*.Rcheck/
 
-# RStudio files
-.Rproj.user/
-
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
-
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
-
-# knitr and R markdown default cache directories
+# Ignore cache directories
 *_cache/
 /cache/
 
-# Temporary files created by R markdown
+# Ignore temporary files created by R markdown
 *.utf8.md
 *.knit.md
 
-# R Environment Variables
-.Renviron
+# Ignore generated plots (e.g., PDFs, PNGs)
+*.pdf
+*.png
+*.jpeg
+*.jpg
 
-# pkgdown site
-docs/
+# Ignore data files (e.g., CSV, Excel, RDS)
+*.csv
+*.tsv
+*.xlsx
+*.rds
 
-# translation temp files
-po/*~
-
-# RStudio Connect folder
+# Ignore other unwanted directories
 rsconnect/
+
+# Explicitly allow R scripts (don't ignore them)
+!*.R
+.Rproj.user
