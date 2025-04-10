@@ -1,8 +1,11 @@
 # Ignore everything
 /*
 
-# But allow R scripts
+# But allow R scripts in the root
 !/*.R
+
+# But allow R scripts in subdirectories
+!**/*.R
 
 # History files
 .Rhistory
