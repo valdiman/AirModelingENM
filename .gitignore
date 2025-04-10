@@ -1,8 +1,8 @@
 # Ignore everything
-*
+/*
 
 # But allow R scripts
-!*.R
+!/*.R
 
 # History files
 .Rhistory
