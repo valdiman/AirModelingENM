@@ -31,7 +31,6 @@ enm <- enm.rawdata[, c("sample", "time", pcb.ind)]
 # Extract relevant columns from enm.data
 cair <- cair.rawdata[, c("sample", "time", pcb.ind)]
 
-
 # Plot Raw Data -----------------------------------------------------------
 plot.enm <- ggplot(enm, aes(x = time, y = !!sym(pcb.ind))) +
   geom_point(shape = 21, size = 2.5, color = "blue") +
@@ -58,5 +57,4 @@ plot.cair <- ggplot(cair, aes(x = time, y = !!sym(pcb.ind))) +
 # Combine both plots
 gridExtra::grid.arrange(plot.enm, plot.cair, ncol = 2)
 
-
-
+# Model uptake of ENM -----------------------------------------------------
