@@ -27,7 +27,7 @@ enm.rawdata <- read.csv("Data/ENM.csv", check.names = FALSE)
 cair.rawdata <- read.csv("Data/Ca.csv", check.names = FALSE)
 
 # Extract relevant columns from enm.data
-pcb.ind <- "PCB86+97+109+119"
+pcb.ind <- "PCB189"
 enm <- enm.rawdata[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from enm.data
@@ -76,7 +76,7 @@ fit_model_constCair <- function(pars, times, Xenm_obs, cair_avg, denm) {
 }
 
 # Starting parameters
-start_pars <- c(ku = 1000, ke = 0.1)
+start_pars <- c(ku = 1000, ke = 0.1) # [1/h]
 
 # Fit using constant Cair
 fit <- nls.lm(
@@ -95,41 +95,57 @@ summary(fit)
 # Predicted values at original time points
 Xenm_fitted <- predict_Xenm_constCair(fit$par, enm_times, cair_avg, denm)
 
+# Model evaluation metrics (performance metrics)
 # Root mean squared error (RMSE)
 RMSE <- sqrt(mean((enm_vals - Xenm_fitted)^2))
-
 # Residual sum of squares (RSS)
 RSS <- sum((enm_vals - Xenm_fitted)^2) # [ng/g]
-
 # Total sum of squares (TSS)
 TSS <- sum((enm_vals - mean(enm_vals))^2)
-
 # R-squared
 R2 <- 1 - RSS / TSS
 
+# Sampler parameters
 # Kenm calculations
 ku <- fit$par[1]
 ke <- fit$par[2]
 logKenm <- log10(ku / ke * 1000^2 / denm) # [L/kg]
+# Sampling rate
+Rs <- ku * V *24 # [m3/d]
 # Time to reach 90% equilibrium
 t90 <- log(10) / ke #[h]
 
 # Create a summary data frame
 model_summary <- data.frame(
+  pcb.ind = pcb.ind,
   ku = ku,
   ke = ke,
   logKenm = logKenm,
+  Rs = Rs,
   t90 = t90,
   RMSE = RMSE,
-  R2 = R2
+  R2 = R2,
+  row.names = NULL
 )
+
+# Add units to column names
+colnames(model_summary) <- c(
+  "congener",
+  "ku (1/h)",
+  "ke (1/h)",
+  "logKenm (L/kg)",
+  "Rs (m3/d)",
+  "t90 (h)",
+  "RMSE",
+  "R2"
+)
+
+# Print the summary for verification
+print(model_summary)
 
 # Save the summary to a CSV file
 summary_filename <- paste0("Output/Data/Model/Summary_", pcb.ind, ".csv")
 write.csv(model_summary, file = summary_filename, row.names = FALSE)
-
-# Print the summary for verification
-print(model_summary)
 
 # Predict for plotting
 pars_fit <- fit$par
@@ -144,7 +160,7 @@ plot.uptake <- ggplot() +
   geom_point(data = obs_df, aes(x = time, y = Observed), shape  = 21,
              color = "black", size = 2.5) +
   geom_line(data = smooth_df, aes(x = time, y = Predicted),
-            color = "black", size = 0.4) +
+            color = "black", linewidth = 0.4) +
   theme_bw() +
   labs(x = expression(bold("Time (hours)")),
        y = bquote(bold("ng" ~.(pcb.ind) ~ "/g PAN"))) +
