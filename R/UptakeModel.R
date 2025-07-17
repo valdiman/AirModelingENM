@@ -27,7 +27,7 @@ enm.rawdata <- read.csv("Data/ENM.csv", check.names = FALSE)
 cair.rawdata <- read.csv("Data/Ca.csv", check.names = FALSE)
 
 # Extract relevant columns from enm.data
-pcb.ind <- "PCB189"
+pcb.ind <- "PCB52"
 enm <- enm.rawdata[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from enm.data
