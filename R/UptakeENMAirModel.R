@@ -66,7 +66,7 @@ conc.wb$sample <- wb.data$sample
 conc.wb$time <- wb.data$time
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB52"
+pcb.ind <- "PCB56"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
