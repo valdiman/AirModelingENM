@@ -22,7 +22,6 @@ install.packages("minpack.cl")
 }
 
 # Read Raw Data -----------------------------------------------------------
-# Read the data
 rawdata <- read.csv("Data/Data.csv", check.names = FALSE)
 sr <- read.csv("Data/WBSamplingRateStat.csv", check.names = FALSE)
 logKoa <- read.csv("Data/logKoa.csv")
@@ -57,7 +56,7 @@ for (i in 1:length(Vwb)) {
 }
 
 # Compute concentration
-conc.wb <- wb.data[, 5:176] / veff_wb
+conc.wb <- wb.data[, 6:177] / veff_wb
 
 # Add congener names to the columns
 colnames(conc.wb) <- logKwb$congener
@@ -66,7 +65,7 @@ conc.wb$sample <- wb.data$sample
 conc.wb$time <- wb.data$time
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB56"
+pcb.ind <- "PCB52"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
@@ -77,37 +76,49 @@ cair.i <- conc.wb[, c("sample", "time", pcb.ind)]
 pan_times <- pan.data$time
 pan_vals <- pan.data[[pcb.ind]]
 
+pan_times <- c(0, pan_times)
+pan_vals  <- c(0, pan_vals)
+
+# Add t = 0 to Cair values
+cair_times <- c(0, cair.i$time)
+cair_vals  <- c(0, cair.i[[pcb.ind]])
+
 # Constant average Cair from last 4 samples
-cair.i_avg <- mean(tail(cair.i[[pcb.ind]], 5))
+# cair.i_avg <- mean(tail(cair.i[[pcb.ind]], 5))
 
 # Pan density calculation
-A <- 38 / 100^2 # [m2]
-th <- 0.015 / 100 # [m]
-V <- A * th # [m3]
-m <- 0.2 # [g]
+A <- pan.data$area # [m2]
+V <- pan.data$vol # [m3]
+m <- 0.06 # [g]
 denm <- m / V  # [g/m3]
 
+if (length(denm) > 1) {
+  denm <- c(denm[1], denm)
+}
+
 # Define ODE with constant Cair
-predict_Xpan_constCair <- function(pars, times, cair.i_avg, denm) {
+predict_Xpan_varCair <- function(pars, times, cair_vals, denm_vals) {
   ku <- pars["ku"]
   ke <- pars["ke"]
   
   ode_func <- function(t, state, parameters) {
+    i <- which(times == t)  # find matching index
     Xpan <- state[1]
-    dXpan <- ku / denm * cair.i_avg - ke * Xpan
+    dXpan <- ku / denm_vals[i] * cair_vals[i] - ke * Xpan
     return(list(c(dXpan)))
   }
   
-  state0 <- c(Xpan = 0)  # Xpan @ time 0 = 0
-  
-  ode_out <- ode(y = state0, times = times, func = ode_func, parms = NULL)
+  state0 <- c(Xpan = 0)
+  ode_out <- ode(y = state0, times = pan_times,
+                 func = ode_func, parms = NULL,
+                 method = "rk4")
   Xpan_pred <- ode_out[, "Xpan"]
   return(Xpan_pred)
 }
 
 # Residuals function for fitting
-fit_model_constCair <- function(pars, times, Xpan_obs, cair.i_avg, denm) {
-  sim_Xpan <- predict_Xpan_constCair(pars, times, cair.i_avg, denm)
+fit_model_varCair <- function(pars, times, Xpan_obs, cair_vals, denm_vals) {
+  sim_Xpan <- predict_Xpan_varCair(pars, times, cair_vals, denm_vals)
   return(sim_Xpan - Xpan_obs)
 }
 
@@ -117,19 +128,19 @@ start_pars <- c(ku = 1000, ke = 0.1) # [1/h]
 # Fit using constant Cair
 fit <- nls.lm(
   par = start_pars,
-  fn = fit_model_constCair,
+  fn = fit_model_varCair,
   lower = c(0, 0),
   control = nls.lm.control(maxiter = 200),
   times = pan_times,
   Xpan_obs = pan_vals,
-  cair.i_avg = cair.i_avg,
-  denm = denm
+  cair_vals = cair_vals,
+  denm_vals = denm
 )
 
 summary(fit)
 
 # Predicted values at original time points
-Xpan_fitted <- predict_Xpan_constCair(fit$par, pan_times, cair.i_avg, denm)
+Xpan_fitted <- predict_Xpan_varCair(fit$par, pan_times, cair_vals, denm)
 
 # Model evaluation metrics (performance metrics)
 # Root mean squared error (RMSE)
@@ -145,11 +156,13 @@ R2 <- 1 - RSS / TSS
 # Kenm calculations
 ku <- fit$par[1]
 ke <- fit$par[2]
-logKpan <- log10(ku / ke * 1000^2 / denm) # [L/kg]
-# Sampling rate
-Rs <- ku * V *24 # [m3/d]
-# Time to reach 90% equilibrium
-t90 <- log(10) / ke #[h]
+
+denm_mean <- mean(denm)
+V_mean <- mean(V)
+
+logKpan <- log10(ku / ke * 1000^2 / denm_mean)
+Rs <- ku * V_mean * 24
+t90 <- log(10) / ke
 
 # Create a summary data frame
 model_summary <- data.frame(
@@ -184,14 +197,40 @@ summary_filename <- paste0("Output/Data/Model/Summary_", pcb.ind, ".csv")
 write.csv(model_summary, file = summary_filename, row.names = FALSE)
 
 # Predict for plotting
-pars_fit <- fit$par
+predict_Xpan_smooth <- function(pars, times, cair_const, denm_mean) {
+  ku <- pars["ku"]
+  ke <- pars["ke"]
+  
+  Xpan <- numeric(length(times))
+  Xpan[1] <- 0  # initial value at t = 0
+  
+  for (i in 2:length(times)) {
+    dt <- times[i] - times[i-1]
+    dXpan <- ku / denm_mean * cair_const - ke * Xpan[i-1]
+    Xpan[i] <- Xpan[i-1] + dXpan * dt
+  }
+  
+  return(Xpan)
+}
+
+# Prepare smooth time and constant Cair
 time_smooth <- seq(min(pan_times), max(pan_times), by = 0.1)
-Xpan_pred_const <- predict_Xpan_constCair(pars_fit, time_smooth, cair.i_avg, denm)
+cair_avg <- mean(cair_vals[3:7])       # exclude t = 0
+denm_mean <- mean(denm)               # mean PAN density
+
+# Predict smooth Xpan using constant Cair
+Xpan_smooth <- predict_Xpan_smooth(
+  pars = fit$par,
+  times = time_smooth,
+  cair_const = cair_avg,
+  denm_mean = denm_mean
+)
+
+# Create data frames for plotting
+obs_df <- data.frame(time = pan_times, Observed = pan_vals)
+smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_smooth)
 
 # Plot
-obs_df <- data.frame(time = pan_times, Observed = pan_vals)
-smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred_const)
-
 plot.uptake <- ggplot() +
   geom_point(data = obs_df, aes(x = time, y = Observed), shape  = 21,
              color = "black", size = 2.5) +
@@ -207,6 +246,7 @@ plot.uptake <- ggplot() +
         aspect.ratio = 1,
         panel.grid = element_blank())
 
+# Display plot
 plot.uptake
 
 # Save plot in folder
