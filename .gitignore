@@ -1,5 +1,6 @@
 # Ignore RStudio project files
 *.Rproj
+.DS_Store
 
 # Ignore R history files
 *.Rhistory
