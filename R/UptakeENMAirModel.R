@@ -22,12 +22,14 @@ install.packages("minpack.cl")
 }
 
 # Read Raw Data -----------------------------------------------------------
-rawdata <- read.csv("Data/Data2.csv", check.names = FALSE)
+rawdata <- read.csv("Data/Data.csv", check.names = FALSE)
 sr <- read.csv("Data/WBSamplingRateStat.csv", check.names = FALSE)
 logKoa <- read.csv("Data/logKoa.csv")
 
 # Organize data
 wb.data <- rawdata[rawdata$sample == 'WB', ]
+# Remove 4 hrs WB. outlier
+wb.data <- wb.data[-1,]
 pan.data <- rawdata[rawdata$sample == 'PAN', ]
 wb.sr <- data.frame(congener = sr$congener, ko = sr$ko)
 
@@ -46,7 +48,7 @@ Vwb <- wb.data$vol
 Awb <- wb.data$area
 t <- wb.data$time
 
-veff_wb <- matrix(NA, nrow = 4, ncol = 172)
+veff_wb <- matrix(NA, nrow = 5, ncol = 172)
 
 for (i in 1:length(Vwb)) {
   # Loop over 173 congeners (columns)
@@ -57,13 +59,13 @@ for (i in 1:length(Vwb)) {
 
 # Compute concentration
 conc.wb <- wb.data[, 6:177] / veff_wb
-# Average 5 days concentrations
+# Average 5 sampling concentrations
 conc.wb.av <- as.data.frame(t(colMeans(conc.wb)))
 # Add sample and time
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB52"
+pcb.ind <- "PCB20+28"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
@@ -91,7 +93,7 @@ predict_Xpan_constCair <- function(pars, times, cair.i, denm) {
     return(list(c(dXpan)))
   }
   
-  state0 <- c(Xpan = 0)  # Xenm @ time 0 = 0
+  state0 <- c(Xpan = 0)  # Xpan @ time 0 = 0
   
   ode_out <- ode(y = state0, times = times, func = ode_func, parms = NULL)
   Xpan_pred <- ode_out[, "Xpan"]
@@ -178,7 +180,7 @@ write.csv(model_summary, file = summary_filename, row.names = FALSE)
 
 # Predict for plotting
 pars_fit <- fit$par
-time_smooth <- seq(min(pan_times), max(pan_times), by = 0.1)
+time_smooth <- seq(0, max(pan_times), by = 0.1) # Start @ time 0
 Xpan_pred_const <- predict_Xpan_constCair(pars_fit, time_smooth,
                                           cair.i, denm)
 
