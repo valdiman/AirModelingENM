@@ -28,7 +28,7 @@ logKoa <- read.csv("Data/logKoa.csv")
 
 # Organize data
 wb.data <- rawdata[rawdata$sample == 'WB', ]
-# Remove 4 hrs WB. outlier
+# Remove 4 hrs wb - outlier
 wb.data <- wb.data[-1,]
 pan.data <- rawdata[rawdata$sample == 'PAN', ]
 wb.sr <- data.frame(congener = sr$congener, ko = sr$ko)
@@ -83,7 +83,7 @@ pan_times <- pan.data$time
 pan_vals <- pan.data[[pcb.ind]]
 
 # Define ODE with constant Cair
-predict_Xpan_constCair <- function(pars, times, cair.i, denm) {
+predict_Xpan <- function(pars, times, cair.i, denm) {
   ku <- pars["ku"]
   ke <- pars["ke"]
   
@@ -102,7 +102,7 @@ predict_Xpan_constCair <- function(pars, times, cair.i, denm) {
 
 # Residuals function for fitting
 fit_model_constCair <- function(pars, times, Xpan_obs, cair.i, denm) {
-  sim_Xpan <- predict_Xpan_constCair(pars, times, cair.i, denm)
+  sim_Xpan <- predict_Xpan(pars, times, cair.i, denm)
   return(sim_Xpan - Xpan_obs)
 }
 
@@ -124,7 +124,7 @@ fit <- nls.lm(
 summary(fit)
 
 # Predicted values at original time points
-Xpan_fitted <- predict_Xpan_constCair(fit$par, pan_times, cair.i, denm)
+Xpan_fitted <- predict_Xpan(fit$par, pan_times, cair.i, denm)
 
 # Model evaluation metrics (performance metrics)
 # Root mean squared error (RMSE)
@@ -181,12 +181,11 @@ write.csv(model_summary, file = summary_filename, row.names = FALSE)
 # Predict for plotting
 pars_fit <- fit$par
 time_smooth <- seq(0, max(pan_times), by = 0.1) # Start @ time 0
-Xpan_pred_const <- predict_Xpan_constCair(pars_fit, time_smooth,
-                                          cair.i, denm)
+Xpan_pred <- predict_Xpan(pars_fit, time_smooth, cair.i, denm)
 
 # Plot
 obs_df <- data.frame(time = pan_times, Observed = pan_vals)
-smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred_const)
+smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred)
 
 plot.uptake <- ggplot() +
   geom_point(data = obs_df, aes(x = time, y = Observed), shape  = 21,
