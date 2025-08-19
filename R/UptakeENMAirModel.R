@@ -65,7 +65,7 @@ conc.wb.av <- as.data.frame(t(colMeans(conc.wb)))
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB20+28"
+pcb.ind <- "PCB153+168"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
@@ -175,7 +175,7 @@ colnames(model_summary) <- c(
 print(model_summary)
 
 # Save the summary to a CSV file
-summary_filename <- paste0("Output/Data/Model/Summary_", pcb.ind, ".csv")
+summary_filename <- paste0("Output/Data/Model/Summary/Summary_", pcb.ind, ".csv")
 write.csv(model_summary, file = summary_filename, row.names = FALSE)
 
 # Predict for plotting
@@ -183,10 +183,14 @@ pars_fit <- fit$par
 time_smooth <- seq(0, max(pan_times), by = 0.1) # Start @ time 0
 Xpan_pred <- predict_Xpan(pars_fit, time_smooth, cair.i, denm)
 
-# Plot
 obs_df <- data.frame(time = pan_times, Observed = pan_vals)
 smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred)
 
+# Save predicted data
+pred_filename <- paste0("Output/Data/Model/Prediction/Pred_", pcb.ind, ".csv")
+write.csv(smooth_df, file = pred_filename, row.names = FALSE)
+
+# Plot
 plot.uptake <- ggplot() +
   geom_point(data = obs_df, aes(x = time, y = Observed), shape  = 21,
              color = "black", size = 2.5) +
