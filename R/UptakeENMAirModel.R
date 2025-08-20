@@ -65,7 +65,7 @@ conc.wb.av <- as.data.frame(t(colMeans(conc.wb)))
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB153+168"
+pcb.ind <- "PCB11"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
