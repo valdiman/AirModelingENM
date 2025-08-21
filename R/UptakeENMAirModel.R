@@ -107,7 +107,7 @@ fit_model_constCair <- function(pars, times, Xpan_obs, cair.i, denm) {
 }
 
 # Starting parameters
-start_pars <- c(ku = 1000, ke = 0.1) # [1/h]
+start_pars <- c(ku = 100000, ke = 0.1) # [1/h]
 
 # Fit using constant Cair
 fit <- nls.lm(

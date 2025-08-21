@@ -38,7 +38,10 @@ D.water.air <- (10^(-3)*1013.25*((273.15+T.air)^1.75*((1/28.97) +
 # PCB diffusivity in air
 D.PCB.air <- D.water.air*(logKoa$MW/18.0152)^(-0.5) # [cm2/s]
 
-
+D.PCB.air <- data.frame(
+  congener = logKoa$congener,
+  d.PCB.air = D.PCB.air
+)
 
 # Select data -------------------------------------------------------------
 all_data_sel <- all_data %>%
@@ -51,7 +54,8 @@ all_data_sel <- all_data %>%
 
 # Join with logKoa by congener
 combined_df <- all_data_sel %>%
-  left_join(logKoa, by = "congener")
+  left_join(logKoa, by = "congener") %>%
+  left_join(D.PCB.air, by = "congener")
 
 # Plots -------------------------------------------------------------------
 ggplot(combined_df, aes(x = logKoa, y = log10(ku))) +
@@ -66,6 +70,20 @@ ggplot(combined_df, aes(x = logKoa, y = log10(ku))) +
         axis.title.x = element_text(face = "bold", size = 10),
         aspect.ratio = 1,
         panel.grid = element_blank())
+
+ggplot(combined_df, aes(x = d.PCB.air, y = log10(ku))) +
+  geom_point(shape = 21, color = "black", size = 2.5) +
+  geom_text(aes(label = congener), vjust = -0.5, size = 3) +
+  theme_bw() +
+  labs(x = expression(bold("Air Diffusivity (cm2/s)")),
+       y = bquote(bold("log ku (1/h)"))) +
+  theme(axis.text.y = element_text(face = "bold", size = 10),
+        axis.title.y = element_text(face = "bold", size = 10, vjust = 0.1),
+        axis.text.x = element_text(face = "bold", size = 10),
+        axis.title.x = element_text(face = "bold", size = 10),
+        aspect.ratio = 1,
+        panel.grid = element_blank())
+
 
 ggplot(combined_df, aes(x = logKoa, y = log10(ke))) +
   geom_point(shape = 21, color = "black", size = 2.5) +
