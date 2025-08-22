@@ -60,19 +60,15 @@ for (i in 1:length(Vwb)) {
 # Compute concentration
 conc.wb <- wb.data[, 6:177] / veff_wb
 # Average 5 sampling concentrations
-conc.wb.av <- as.data.frame(t(colMeans(conc.wb)))
-
-
 conc.wb.av <- as.data.frame(t(apply(conc.wb, 2, function(x) {
   mean(x[x != 0], na.rm = TRUE)  # take mean of non-zero values
 })))
-
 
 # Add sample and time
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB11"
+pcb.ind <- "PCB61+70+74+76"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
