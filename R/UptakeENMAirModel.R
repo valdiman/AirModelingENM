@@ -68,7 +68,7 @@ conc.wb.av <- as.data.frame(t(apply(conc.wb, 2, function(x) {
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB61+70+74+76"
+pcb.ind <- "PCB174"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
@@ -78,7 +78,7 @@ cair.i <- conc.wb.av[, c(pcb.ind)]
 A <- pan.data$area # [m2]
 V <- pan.data$vol[1] # [m3]
 m <- 0.06 # [g]
-denm <- m / V  # [g/m3]
+dpan <- m / V  # [g/m3]
 
 # Model uptake of ENM -----------------------------------------------------
 # Extract times and values
@@ -86,13 +86,13 @@ pan_times <- pan.data$time
 pan_vals <- pan.data[[pcb.ind]]
 
 # Define ODE with constant Cair
-predict_Xpan <- function(pars, times, cair.i, denm) {
+predict_Xpan <- function(pars, times, cair.i, dpan) {
   ku <- pars["ku"]
   ke <- pars["ke"]
   
   ode_func <- function(t, state, parameters) {
     Xpan <- state[1]
-    dXpan <- ku / denm * cair.i - ke * Xpan
+    dXpan <- ku / dpan * cair.i - ke * Xpan
     return(list(c(dXpan)))
   }
   
@@ -104,8 +104,8 @@ predict_Xpan <- function(pars, times, cair.i, denm) {
 }
 
 # Residuals function for fitting
-fit_model_constCair <- function(pars, times, Xpan_obs, cair.i, denm) {
-  sim_Xpan <- predict_Xpan(pars, times, cair.i, denm)
+fit_model_constCair <- function(pars, times, Xpan_obs, cair.i, dpan) {
+  sim_Xpan <- predict_Xpan(pars, times, cair.i, dpan)
   return(sim_Xpan - Xpan_obs)
 }
 
@@ -121,13 +121,13 @@ fit <- nls.lm(
   times = pan_times,
   Xpan_obs = pan_vals,
   cair.i = cair.i,
-  denm = denm
+  dpan = dpan
 )
 
 summary(fit)
 
 # Predicted values at original time points
-Xpan_fitted <- predict_Xpan(fit$par, pan_times, cair.i, denm)
+Xpan_fitted <- predict_Xpan(fit$par, pan_times, cair.i, dpan)
 
 # Model evaluation metrics (performance metrics)
 # Root mean squared error (RMSE)
@@ -140,10 +140,10 @@ TSS <- sum((pan_vals - mean(pan_vals))^2)
 R2 <- 1 - RSS / TSS
 
 # Sampler parameters
-# Kenm calculations
+# Kpan calculations
 ku <- fit$par[1]
 ke <- fit$par[2]
-logKpan <- log10(ku / ke * 1000^2 / denm) # [L/kg]
+logKpan <- log10(ku / ke * 1000^2 / dpan) # [L/kg]
 # Sampling rate
 Rs <- ku * V *24 # [m3/d]
 # Time to reach 90% equilibrium
@@ -184,7 +184,7 @@ write.csv(model_summary, file = summary_filename, row.names = FALSE)
 # Predict for plotting
 pars_fit <- fit$par
 time_smooth <- seq(0, max(pan_times), by = 0.1) # Start @ time 0
-Xpan_pred <- predict_Xpan(pars_fit, time_smooth, cair.i, denm)
+Xpan_pred <- predict_Xpan(pars_fit, time_smooth, cair.i, dpan)
 
 obs_df <- data.frame(time = pan_times, Observed = pan_vals)
 smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred)
