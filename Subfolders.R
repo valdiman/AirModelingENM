@@ -1,4 +1,4 @@
-# Subfolder
+# Subfolders
 
 dir.create("R")
 dir.create("R/Functions")
