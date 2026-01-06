@@ -17,7 +17,7 @@ install.packages("purrr")
 
 # Read generated data -----------------------------------------------------
 # List all files
-files <- list.files(path = "Output/Data/Model/Summary", 
+files <- list.files(path = "Output/Data/Model/Summary2", 
                     pattern = "^Summary_PCB.*\\.csv$", 
                     full.names = TRUE)
 
@@ -48,7 +48,7 @@ all_data2 <- all_data[!is.infinite(all_data$`logKpan (L/kg)`), ]
 all_data2 <- all_data2[all_data2$R2 >= 0.85, ]
 
 # Select data -------------------------------------------------------------
-all_data_sel <- all_data2 %>%
+all_data_sel <- all_data %>%
   select(congener,
          ku = `ku (1/h)`,
          ke = `ke (1/h)`,
@@ -98,13 +98,13 @@ plot.ku <- ggplot(combined_df, aes(x = logKoa, y = log10(ku))) +
   geom_point(shape = 21, color = "black", size = 2.5) +
   geom_smooth(method = "lm", color = "blue", se = TRUE) +
   annotate("text", x = min(combined_df$logKoa), 
-           y = max(log10(combined_df$ku)) + 0.4, 
+           y = max(log10(combined_df$ku)) + 0.05, 
            label = eq_text, hjust = 0, vjust = 1, size = 4) +
   annotate("text", x = min(combined_df$logKoa), 
-           y = max(log10(combined_df$ku)) + 0.3, 
+           y = max(log10(combined_df$ku)) + 0.01, 
            label = R2_text, hjust = 0, vjust = 1, size = 4) +
   annotate("text", x = min(combined_df$logKoa), 
-           y = max(log10(combined_df$ku)) + 0.2, 
+           y = max(log10(combined_df$ku)) - 0.03, 
            label = p_text, hjust = 0, vjust = 1, size = 4) +
   theme_bw() +
   labs(x = expression(bold("log Koa")),
@@ -119,7 +119,7 @@ plot.ku <- ggplot(combined_df, aes(x = logKoa, y = log10(ku))) +
 # See plot
 plot.ku
 # Save plot in folder
-ggsave("Output/Plots/Regressions/logKoa_logku.png", plot = plot.ku,
+ggsave("Output/Plots/Regressions/logKoa_logku2.png", plot = plot.ku,
        width = 5, height = 5, dpi = 500)
 
 # (2) d.PCB.air vs log ku
@@ -158,13 +158,13 @@ plot.ku2 <- ggplot(combined_df, aes(x = d.PCB.air, y = log10(ku))) +
   geom_point(shape = 21, color = "black", size = 2.5) +
   geom_smooth(method = "lm", color = "blue", se = TRUE) +
   annotate("text", x = min(combined_df$d.PCB.air), 
-           y = max(log10(combined_df$ku)) + 0.4, 
+           y = max(log10(combined_df$ku)) - 0.1, 
            label = eq_text, hjust = 0, vjust = 1, size = 4) +
   annotate("text", x = min(combined_df$d.PCB.air), 
-           y = max(log10(combined_df$ku)) + 0.3, 
+           y = max(log10(combined_df$ku)) - 0.2, 
            label = R2_text, hjust = 0, vjust = 1, size = 4) +
   annotate("text", x = min(combined_df$d.PCB.air), 
-           y = max(log10(combined_df$ku)) + 0.2, 
+           y = max(log10(combined_df$ku)) - 0.3, 
            label = p_text, hjust = 0, vjust = 1, size = 4) +
   theme_bw() +
   labs(x = expression(bold("log Koa")),
@@ -179,7 +179,7 @@ plot.ku2 <- ggplot(combined_df, aes(x = d.PCB.air, y = log10(ku))) +
 # See plot
 plot.ku2
 # Save plot in folder
-ggsave("Output/Plots/Regressions/DPCBAir_logku.png", plot = plot.ku2,
+ggsave("Output/Plots/Regressions/DPCBAir_logku2.png", plot = plot.ku2,
        width = 5, height = 5, dpi = 500)
 
 # (3) log Koa vs log ke
@@ -239,7 +239,7 @@ plot.ke <- ggplot(combined_df, aes(x = logKoa, y = log10(ke))) +
 # See plot
 plot.ke
 # Save plot in folder
-ggsave("Output/Plots/Regressions/logKoa_logke.png", plot = plot.ke,
+ggsave("Output/Plots/Regressions/logKoa_logke2.png", plot = plot.ke,
        width = 5, height = 5, dpi = 500)
 
 # (4) log Koa vs log Kpan
@@ -299,7 +299,7 @@ plot.kpan <- ggplot(combined_df, aes(x = logKoa, y = logKpan)) +
 # See plot
 plot.kpan
 # Save plot in folder
-ggsave("Output/Plots/Regressions/logKao_logKpan.png", plot = plot.kpan,
+ggsave("Output/Plots/Regressions/logKao_logKpan2.png", plot = plot.kpan,
        width = 5, height = 5, dpi = 500)
 
 # (4) log Koa vs Rs
@@ -313,8 +313,30 @@ ggplot(combined_df, aes(x = logKoa, y = Rs)) +
         axis.title.y = element_text(face = "bold", size = 10, vjust = 0.1),
         axis.text.x = element_text(face = "bold", size = 10),
         axis.title.x = element_text(face = "bold", size = 10),
-        aspect.ratio = 1,
+        aspect.ratio = 1/3,
         panel.grid = element_blank())
+
+Rs_mean <- mean(combined_df$Rs)
+Rs_std <- 
+
+plot.Rs <- ggplot(combined_df, aes(x = logKoa, y = Rs)) +
+  geom_point(shape = 21, color = "black", size = 2.5) +
+  theme_bw() +
+  labs(x = expression(bold("log Koa")),
+       y = bquote(bold("Rs (m3/d)"))) +
+  theme(axis.text.y = element_text(face = "bold", size = 10),
+        axis.title.y = element_text(face = "bold", size = 10, vjust = 0.1),
+        axis.text.x = element_text(face = "bold", size = 10),
+        axis.title.x = element_text(face = "bold", size = 10),
+        aspect.ratio = 1/3,
+        panel.grid = element_blank())
+
+# See plot
+plot.Rs
+# Save plot in folder
+ggsave("Output/Plots/Regressions/logKao_Rs.png", plot = plot.Rs,
+       width = 10, height = 5, dpi = 500)
+
 
 # (4) log Koa vs t90
 ggplot(combined_df, aes(x = logKoa, y = t90/24)) +

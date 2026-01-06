@@ -68,7 +68,7 @@ conc.wb.av <- as.data.frame(t(apply(conc.wb, 2, function(x) {
 conc.wb.av$sample <- c('conc.ave')
 
 # Extract relevant columns from pan.data
-pcb.ind <- "PCB174"
+pcb.ind <- "PCB85+116"
 pan.i <- pan.data[, c("sample", "time", pcb.ind)]
 
 # Extract relevant columns from conc.wb
@@ -178,7 +178,7 @@ colnames(model_summary) <- c(
 print(model_summary)
 
 # Save the summary to a CSV file
-summary_filename <- paste0("Output/Data/Model/Summary/Summary_", pcb.ind, ".csv")
+summary_filename <- paste0("Output/Data/Model/Summary2/Summary_", pcb.ind, ".csv")
 write.csv(model_summary, file = summary_filename, row.names = FALSE)
 
 # Predict for plotting
@@ -190,7 +190,7 @@ obs_df <- data.frame(time = pan_times, Observed = pan_vals)
 smooth_df <- data.frame(time = time_smooth, Predicted = Xpan_pred)
 
 # Save predicted data
-pred_filename <- paste0("Output/Data/Model/Prediction/Pred_", pcb.ind, ".csv")
+pred_filename <- paste0("Output/Data/Model/Prediction2/Pred_", pcb.ind, ".csv")
 write.csv(smooth_df, file = pred_filename, row.names = FALSE)
 
 # Plot
@@ -213,7 +213,7 @@ plot.uptake <- ggplot() +
 plot.uptake
 
 # Save plot in folder
-plot_filename <- paste0("Output/Plots/Model/Plot_", pcb.ind, ".png")
+plot_filename <- paste0("Output/Plots/Model2/Plot_", pcb.ind, ".png")
 ggsave(plot_filename, plot = plot.uptake, width = 5,
        height = 5, dpi = 500)
 
