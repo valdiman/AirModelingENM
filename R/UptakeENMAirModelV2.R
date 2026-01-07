@@ -244,3 +244,5 @@ plot_filename <- paste0("Output/Plots/Model2/Plot_", pcb.ind, ".png")
 ggsave(plot_filename, plot = plot.uptake, width = 5,
        height = 5, dpi = 500)
 
+
+
