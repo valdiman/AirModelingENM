@@ -85,59 +85,86 @@ pan.i <- pan.data[, c("sample", "time", "vol", "area", pcb.ind)]
 # Extract relevant columns from conc.wb
 conc.wb.i <- conc.wb[, c("time", pcb.ind)]
 
+# Remove row where time = 120 ----
+pan2.i <- pan.i[pan.i$time != 120, ]
+conc2.wb.i <- conc.wb.i[conc.wb.i$time != 120, ]
+
 # Pan density calculation
 m <- 0.06 # [g]
 pan.i$den <- m / pan.i$vol  # [g/m3]
 
 # Measured data
-pan_times <- pan.i$time # PAN measurement times
-pan_vals  <- pan.i[[pcb.ind]] # PAN observed concentrations
+pan_times <- pan2.i$time # PAN measurement times
+pan_vals  <- pan2.i[[pcb.ind]] # PAN observed concentrations
 
-cair_times <- conc.wb.i$time # measured Cair times
-cair_vals  <- conc.wb.i[[pcb.ind]] # measured Cair values
+cair_times <- conc2.wb.i$time # measured Cair times
+cair_vals  <- conc2.wb.i[[pcb.ind]] # measured Cair values
 dpan <- pan.i$den[1] # PAN density [g/m3]
 
 # ODE derivative function
 ode_func <- function(t, state, pars) {
-  ku <- pars["ku"] # [1/h]
-  ke <- pars["ke"] # [1/h])
+  ku <- pars["ku"]
+  ke <- pars["ke"]
   
   # Use exact measured Cair at nearest previous time
   idx <- max(which(cair_times <= t))
   Cair <- cair_vals[idx]
   
   X <- state[1]
-  dX <- ku / dpan * Cair - ke * X
+  dX <- ku * Cair - ke * X  # ku already scaled in logKpan
   return(list(c(dX)))
 }
 
 # Function to predict Xpan at PAN measurement times
 predict_Xpan <- function(pars) {
-  state0 <- c(X = 0)  # initial amount
-  out <- ode(y = state0, times = pan_times, func = ode_func, parms = pars)
+  state0 <- c(X = 1e-6)
+  out <- ode(
+    y = state0,
+    times = pan_times,       # exact measurement times
+    func = ode_func,
+    parms = pars,
+    rtol = 1e-5,             # relaxed relative tolerance
+    atol = 1e-6              # relaxed absolute tolerance
+  )
   Xpan <- out[, "X"]
   return(Xpan)
 }
 
-# Residual function for fitting
 residuals_fun <- function(pars) {
-  pars <- setNames(pars, names(start_pars))  # ensures names
-  sim <- predict_Xpan(pars)
-  return(sim - pan_vals)
+  # Extract fitted parameters
+  log_ke <- pars["log_ke"]
+  logKpan <- pars["logKpan"]
+  
+  ke <- exp(log_ke)
+  ku <- ke * dpan / 1e6 * 10^logKpan  # compute ku from logKpan
+  
+  sim <- predict_Xpan(c(ku = ku, ke = ke))
+  sim - pan_vals
 }
 
-# Starting parameters
-start_pars <- c(ku = 1000000, ke = 0.1) # [1/h]
+start_pars <- c(log_ke = log(0.01), logKpan = 7)
+
 
 # Fit using Levenberg-Marquardt
 fit <- nls.lm(par = start_pars, fn = residuals_fun)
 
 # Fitted parameters
-fit$par
+fitted_log_ke <- fit$par["log_ke"]
+fitted_logKpan <- fit$par["logKpan"]
+
+fitted_ke <- exp(fitted_log_ke)
+fitted_ku <- fitted_ke * dpan / 1e6 * 10^fitted_logKpan
+
+cat("Fitted parameters:\n")
+cat("ku =", fitted_ku, "[1/h]\n")
+cat("ke =", fitted_ke, "[1/h]\n")
+cat("logKpan =", fitted_logKpan, "\n")
 
 # Predicted values using the fitted parameters
-sim <- predict_Xpan(fit$par)
-# Residuals
+sim <- predict_Xpan(c(ku = fitted_ku, ke = fitted_ke))
+length(sim)
+length(pan_vals)
+
 res <- sim - pan_vals
 # Residual sum of squares
 RSS <- sum(res^2)
