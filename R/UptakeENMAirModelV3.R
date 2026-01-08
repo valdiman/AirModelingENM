@@ -79,109 +79,69 @@ conc.wb <- wb.data.2[, 4:175] / veff
 conc.wb$time <- wb.data$time
 tPCB.conc.wb <- as.data.frame(rowSums(conc.wb[, 1:172], na.rm = TRUE))
 
-# Extract relevant columns from pan.data
+
+library(deSolve)
+library(minpack.lm)
+
 pcb.ind <- "PCB52"
+
+# Remove first observation and use constant Cair
+conc.wb.i2 <- conc.wb[, c("time", pcb.ind)][-1, ]
+Cair_const <- mean(conc.wb.i2[[pcb.ind]])
+
+# PAN data
 pan.i <- pan.data[, c("sample", "time", "vol", "area", pcb.ind)]
-# Extract relevant columns from conc.wb
-conc.wb.i <- conc.wb[, c("time", pcb.ind)]
+pan.i2 <- pan.i[-5, ]
+dpan <- 0.06 / pan.i$vol[1]  # PAN density
+pan_times <- pan.i2$time
+pan_vals  <- pan.i2[[pcb.ind]]
 
-# Remove row where time = 120 ----
-pan2.i <- pan.i[pan.i$time != 120, ]
-conc2.wb.i <- conc.wb.i[conc.wb.i$time != 120, ]
-
-# Pan density calculation
-m <- 0.06 # [g]
-pan.i$den <- m / pan.i$vol  # [g/m3]
-
-# Measured data
-pan_times <- pan2.i$time # PAN measurement times
-pan_vals  <- pan2.i[[pcb.ind]] # PAN observed concentrations
-
-cair_times <- conc2.wb.i$time # measured Cair times
-cair_vals  <- conc2.wb.i[[pcb.ind]] # measured Cair values
-dpan <- pan.i$den[1] # PAN density [g/m3]
-
-# ODE derivative function
+# ODE function
 ode_func <- function(t, state, pars) {
   ku <- pars["ku"]
   ke <- pars["ke"]
-  
-  # Use exact measured Cair at nearest previous time
-  idx <- max(which(cair_times <= t))
-  Cair <- cair_vals[idx]
-  
   X <- state[1]
-  dX <- ku * Cair - ke * X  # ku already scaled in logKpan
+  dX <- ku / dpan * Cair_const - ke * X
   return(list(c(dX)))
 }
 
-# Function to predict Xpan at PAN measurement times
+# Prediction function
 predict_Xpan <- function(pars) {
-  state0 <- c(X = 1e-6)
-  out <- ode(
-    y = state0,
-    times = pan_times,       # exact measurement times
-    func = ode_func,
-    parms = pars,
-    rtol = 1e-5,             # relaxed relative tolerance
-    atol = 1e-6              # relaxed absolute tolerance
-  )
-  Xpan <- out[, "X"]
-  return(Xpan)
+  state0 <- c(X = 0)
+  out <- ode(y = state0, times = pan_times, func = ode_func, parms = pars, method = "rk4")
+  return(out[, "X"])
 }
 
+# Residual function
 residuals_fun <- function(pars) {
-  # Extract fitted parameters
-  log_ke <- pars["log_ke"]
-  logKpan <- pars["logKpan"]
-  
-  ke <- exp(log_ke)
-  ku <- ke * dpan / 1e6 * 10^logKpan  # compute ku from logKpan
-  
-  sim <- predict_Xpan(c(ku = ku, ke = ke))
+  sim <- predict_Xpan(pars)
   sim - pan_vals
 }
 
-start_pars <- c(log_ke = log(0.01), logKpan = 7)
+# Starting parameters
+start_pars <- c(ku = 80000, ke = 0.01)  # choose reasonable initial values
 
-
-# Fit using Levenberg-Marquardt
+# Fit using nls.lm
 fit <- nls.lm(par = start_pars, fn = residuals_fun)
 
-# Fitted parameters
-fitted_log_ke <- fit$par["log_ke"]
-fitted_logKpan <- fit$par["logKpan"]
-
-fitted_ke <- exp(fitted_log_ke)
-fitted_ku <- fitted_ke * dpan / 1e6 * 10^fitted_logKpan
+# Extract fitted parameters
+fitted_ku <- fit$par["ku"]
+fitted_ke <- fit$par["ke"]
 
 cat("Fitted parameters:\n")
 cat("ku =", fitted_ku, "[1/h]\n")
 cat("ke =", fitted_ke, "[1/h]\n")
-cat("logKpan =", fitted_logKpan, "\n")
 
-# Predicted values using the fitted parameters
-sim <- predict_Xpan(c(ku = fitted_ku, ke = fitted_ke))
-length(sim)
-length(pan_vals)
-
+# Predicted PAN and metrics
+sim <- predict_Xpan(fit$par)
 res <- sim - pan_vals
-# Residual sum of squares
 RSS <- sum(res^2)
-# Total sum of squares
 TSS <- sum((pan_vals - mean(pan_vals))^2)
-# R-squared
-R2 <- 1 - RSS / TSS
-# RMSE (Root Mean Square Error)
+R2 <- 1 - RSS/TSS
 RMSE <- sqrt(mean(res^2))
-# MAE (Mean Absolute Error)
 MAE <- mean(abs(res))
 
-# Print metrics
-cat("Fitted parameters:\n")
-print(fit$par)
-cat("\nGoodness-of-fit:\n")
-cat("R2:", R2, "\nRMSE:", RMSE, "\nMAE:", MAE, "\n")
+cat("R2 =", R2, "RMSE =", RMSE, "MAE =", MAE, "\n")
 
 # Sampler parameters
 # Kpan calculations
@@ -229,21 +189,18 @@ write.csv(model_summary, file = summary_filename, row.names = FALSE)
 # Finer time grid for plotting
 time_grid <- seq(min(pan_times), max(pan_times), by = 1)  # hours
 
-# Linear interpolation (with rule=2 to avoid NA)
-cair_interp <- approxfun(cair_times, cair_vals, rule = 2)
-
 ode_func_plot <- function(t, state, pars) {
   ku <- pars["ku"]
   ke <- pars["ke"]
   X <- state[1]
-  Cair <- cair_interp(t)
-  dX <- ku / dpan * Cair - ke * X
+  dX <- ku / dpan * Cair_const - ke * X  # constant Cair
   return(list(c(dX)))
 }
 
 state0 <- c(X = 0)
-out_plot <- ode(y = state0, times = time_grid, func = ode_func_plot, parms = fit$par)
+out_plot <- ode(y = state0, times = time_grid, func = ode_func_plot, parms = fit$par, method = "rk4")
 smooth_df <- data.frame(time = out_plot[, "time"], Predicted = out_plot[, "X"])
+
 
 obs_df <- data.frame(
   time = pan.i$time,
