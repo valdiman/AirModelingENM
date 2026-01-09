@@ -80,7 +80,7 @@ conc.wb$time <- wb.data$time
 tPCB.conc.wb <- as.data.frame(rowSums(conc.wb[, 1:172], na.rm = TRUE))
 
 # Select PCBi -------------------------------------------------------------
-pcb.ind <- "PCB15"
+pcb.ind <- "PCB46"
 
 # Remove first observation and use constant Cair
 conc.wb.i2 <- conc.wb[, c("time", pcb.ind)][-1, ]
@@ -97,76 +97,76 @@ pan_vals  <- c(0, pan.i2[[pcb.ind]])
 
 # Solve uptake equation ---------------------------------------------------
 # Analytical solution function
-pan_model <- function(time, ku, ke) {
+fit_nls <- nls(
+  pan_vals ~ (ku * Cair_const) / (ke * dpan) * (1 - exp(-ke * pan_times)),
+  start = list(ku = 80000, ke = 0.01)
+)
+
+# Summary of fit
+fit_summary <- summary(fit_nls)
+coef_est <- coef(fit_summary)
+ku <- coef_est["ku","Estimate"]
+ke <- coef_est["ke","Estimate"]
+se_ku <- coef_est["ku","Std. Error"]
+se_ke <- coef_est["ke","Std. Error"]
+
+# z-scores
+z_ku <- ku / se_ku
+z_ke <- ke / se_ke
+
+# two-sided p-values (H0: parameter = 0)
+p_ku <- 2 * (1 - pnorm(abs(z_ku)))
+p_ke <- 2 * (1 - pnorm(abs(z_ke)))
+
+# significance flags (alpha = 0.05)
+sig_ku <- p_ku < 0.05
+sig_ke <- p_ke < 0.05
+
+# Derived parameters
+logKpan <- log10(ku / ke * 1000^2 / dpan)
+dlogKpan_dku <- 1 / (ku * log(10))
+dlogKpan_dke <- -1 / (ke * log(10))
+se_logKpan <- sqrt(
+  dlogKpan_dku^2 * se_ku^2 +
+    dlogKpan_dke^2 * se_ke^2)
+
+Rs <- ku * pan.i$vol[1] * 24   # [m3/d]
+
+t90.h <- log(10) / ke
+t90.d <- t90.h / 24
+se_t90 <- abs(-log(10)/ke^2) * se_ke
+
+# Predicted PAN & goodness-of-fit
+sim <- pan_model <- function(time, ku, ke) {
   (ku * Cair_const) / (ke * dpan) * (1 - exp(-ke * time))
 }
 
-# Residuals for fitting
-
-residuals_fun <- function(pars) {
-  ku <- pars["ku"]
-  ke <- pars["ke"]
-  sim <- pan_model(pan_times, ku, ke)
-  sim - pan_vals
-}
-
-# Starting parameters
-start_pars <- c(ku = 80000, ke = 0.01)
-
-# Fit using nonlinear least squares (Levenberg-Marquardt)
-fit <- nls.lm(par = start_pars, fn = residuals_fun)
-
-# Get optimized parameters
-fitted_ku <- fit$par["ku"]
-fitted_ke <- fit$par["ke"]
-
-# Predicted PAN and goodness-of-fit
-sim <- pan_model(pan_times, fitted_ku, fitted_ke)
-res <- sim - pan_vals
+predicted <- pan_model(pan_times, ku, ke)
+res <- predicted - pan_vals
 RSS  <- sum(res^2)
 TSS  <- sum((pan_vals - mean(pan_vals))^2)
 R2   <- 1 - RSS / TSS
 RMSE <- sqrt(mean(res^2))
 
-cat("\nModel performance:\n")
-cat("R2   =", R2, "\n")
-cat("RMSE =", RMSE, "\n")
-
-# Sampler parameters ------------------------------------------------------
-# Kpan calculations
-ku <- fit$par["ku"]
-ke <- fit$par["ke"]
-logKpan <- log10(ku / ke * 1000^2 / dpan) # [L/kg]
-# Sampling rate
-Rs <- ku * pan.i$vol[1] * 24 # [m3/d]
-# Time to reach 90% equilibrium
-t90.h <- log(10) / ke # [h]
-t90.d <- log(10) / ke  / 24 # [d]
-
-# Create a summary data frame
+# Create summary table
 model_summary <- data.frame(
-  pcb.ind = pcb.ind,
-  ku = ku,
-  ke = ke,
-  logKpan = logKpan,
-  Rs = Rs,
-  t90 = t90.h,
-  t90 = t90.d,
-  RMSE = RMSE,
-  R2 = R2,
-  row.names = NULL)
-
-# Add units to column names
-colnames(model_summary) <- c(
-  "congener",
-  "ku (1/h)",
-  "ke (1/h)",
-  "logKpan (L/kg)",
-  "Rs (m3/d)",
-  "t90 (h)",
-  "t90 (d)",
-  "RMSE",
-  "R2")
+  congener     = pcb.ind,
+  ku           = ku,
+  se_ku        = se_ku,
+  p_ku         = p_ku,
+  sig_ku       = sig_ku,
+  ke           = ke,
+  se_ke        = se_ke,
+  p_ke         = p_ke,
+  sig_ke       = sig_ke,
+  logKpan      = logKpan,
+  se_logKpan   = se_logKpan,
+  Rs           = Rs,
+  t90_h        = t90.h,
+  t90_d        = t90.d,
+  se_t90_h     = se_t90,
+  RMSE         = RMSE,
+  R2           = R2)
 
 # Print the summary for verification
 print(model_summary)
