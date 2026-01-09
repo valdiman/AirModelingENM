@@ -28,12 +28,12 @@ install.packages("minpack.cl")
   logKoa <- read.csv("Data/logKoa.csv")
 }
 
-# Organize data
+# Organize data -----------------------------------------------------------
 wb.data <- rawdata[rawdata$sample == 'WB', ]
 pan.data <- rawdata[rawdata$sample == 'PAN', ]
 wb.sr <- data.frame(congener = sr$congener, ko = sr$ko)
 
-# Calculate air concentration from WB
+# Calculate air concentration from WB -------------------------------------
 # Calculate logKwb [m3/m3]
 # Regression created with data from Tromp et al 2019 (Table 2, Wristband)
 # & Frederiksen et al 2022 (Table 3)
@@ -79,87 +79,63 @@ conc.wb <- wb.data.2[, 4:175] / veff
 conc.wb$time <- wb.data$time
 tPCB.conc.wb <- as.data.frame(rowSums(conc.wb[, 1:172], na.rm = TRUE))
 
-# Extract relevant columns from pan.data
-pcb.ind <- "PCB52"
+# Select PCBi -------------------------------------------------------------
+pcb.ind <- "PCB15"
+
+# Remove first observation and use constant Cair
+conc.wb.i2 <- conc.wb[, c("time", pcb.ind)][-1, ]
+Cair_const <- mean(conc.wb.i2[[pcb.ind]])
+
+# PAN data
 pan.i <- pan.data[, c("sample", "time", "vol", "area", pcb.ind)]
-# Extract relevant columns from conc.wb
-conc.wb.i <- conc.wb[, c("time", pcb.ind)]
+dpan <- 0.06 / pan.i$vol[1]  # PAN density
+# Remove point at 120 hr
+pan.i2 <- pan.i[pan.i$time != 120, ]
+# Include time 0
+pan_times <- c(0, pan.i2$time)
+pan_vals  <- c(0, pan.i2[[pcb.ind]])
 
-# Pan density calculation
-m <- 0.06 # [g]
-pan.i$den <- m / pan.i$vol  # [g/m3]
-
-# Measured data
-pan_times <- pan.i$time # PAN measurement times
-pan_vals  <- pan.i[[pcb.ind]] # PAN observed concentrations
-
-cair_times <- conc.wb.i$time # measured Cair times
-cair_vals  <- conc.wb.i[[pcb.ind]] # measured Cair values
-dpan <- pan.i$den[1] # PAN density [g/m3]
-
-# ODE derivative function
-ode_func <- function(t, state, pars) {
-  ku <- pars["ku"] # [1/h]
-  ke <- pars["ke"] # [1/h])
-  
-  # Use exact measured Cair at nearest previous time
-  idx <- max(which(cair_times <= t))
-  Cair <- cair_vals[idx]
-  
-  X <- state[1]
-  dX <- ku / dpan * Cair - ke * X
-  return(list(c(dX)))
+# Solve uptake equation ---------------------------------------------------
+# Analytical solution function
+pan_model <- function(time, ku, ke) {
+  (ku * Cair_const) / (ke * dpan) * (1 - exp(-ke * time))
 }
 
-# Function to predict Xpan at PAN measurement times
-predict_Xpan <- function(pars) {
-  state0 <- c(X = 0)  # initial amount
-  out <- ode(y = state0, times = pan_times, func = ode_func, parms = pars)
-  Xpan <- out[, "X"]
-  return(Xpan)
-}
+# Residuals for fitting
 
-# Residual function for fitting
 residuals_fun <- function(pars) {
-  pars <- setNames(pars, names(start_pars))  # ensures names
-  sim <- predict_Xpan(pars)
-  return(sim - pan_vals)
+  ku <- pars["ku"]
+  ke <- pars["ke"]
+  sim <- pan_model(pan_times, ku, ke)
+  sim - pan_vals
 }
 
 # Starting parameters
-start_pars <- c(ku = 1000000, ke = 0.1) # [1/h]
+start_pars <- c(ku = 80000, ke = 0.01)
 
-# Fit using Levenberg-Marquardt
+# Fit using nonlinear least squares (Levenberg-Marquardt)
 fit <- nls.lm(par = start_pars, fn = residuals_fun)
 
-# Fitted parameters
-fit$par
+# Get optimized parameters
+fitted_ku <- fit$par["ku"]
+fitted_ke <- fit$par["ke"]
 
-# Predicted values using the fitted parameters
-sim <- predict_Xpan(fit$par)
-# Residuals
+# Predicted PAN and goodness-of-fit
+sim <- pan_model(pan_times, fitted_ku, fitted_ke)
 res <- sim - pan_vals
-# Residual sum of squares
-RSS <- sum(res^2)
-# Total sum of squares
-TSS <- sum((pan_vals - mean(pan_vals))^2)
-# R-squared
-R2 <- 1 - RSS / TSS
-# RMSE (Root Mean Square Error)
+RSS  <- sum(res^2)
+TSS  <- sum((pan_vals - mean(pan_vals))^2)
+R2   <- 1 - RSS / TSS
 RMSE <- sqrt(mean(res^2))
-# MAE (Mean Absolute Error)
-MAE <- mean(abs(res))
 
-# Print metrics
-cat("Fitted parameters:\n")
-print(fit$par)
-cat("\nGoodness-of-fit:\n")
-cat("R2:", R2, "\nRMSE:", RMSE, "\nMAE:", MAE, "\n")
+cat("\nModel performance:\n")
+cat("R2   =", R2, "\n")
+cat("RMSE =", RMSE, "\n")
 
-# Sampler parameters
+# Sampler parameters ------------------------------------------------------
 # Kpan calculations
-ku <- fit$par[1]
-ke <- fit$par[2]
+ku <- fit$par["ku"]
+ke <- fit$par["ke"]
 logKpan <- log10(ku / ke * 1000^2 / dpan) # [L/kg]
 # Sampling rate
 Rs <- ku * pan.i$vol[1] * 24 # [m3/d]
@@ -196,45 +172,44 @@ colnames(model_summary) <- c(
 print(model_summary)
 
 # Save the summary to a CSV file
-summary_filename <- paste0("Output/Data/Model/Summary2/Summary_", pcb.ind, ".csv")
+summary_filename <- paste0("Output/Data/Model2/Summary2/Summary_", pcb.ind, ".csv")
 write.csv(model_summary, file = summary_filename, row.names = FALSE)
 
+# Plot observations & modeling predictions --------------------------------
 # Finer time grid for plotting
-time_grid <- seq(min(pan_times), max(pan_times), by = 1)  # hours
+time_grid <- seq(min(pan_times), max(pan_times), by = 0.1)
 
-# Linear interpolation (with rule=2 to avoid NA)
-cair_interp <- approxfun(cair_times, cair_vals, rule = 2)
-
+# ODE for plotting
 ode_func_plot <- function(t, state, pars) {
   ku <- pars["ku"]
   ke <- pars["ke"]
   X <- state[1]
-  Cair <- cair_interp(t)
-  dX <- ku / dpan * Cair - ke * X
+  dX <- ku / dpan * Cair_const - ke * X
   return(list(c(dX)))
 }
 
 state0 <- c(X = 0)
-out_plot <- ode(y = state0, times = time_grid, func = ode_func_plot, parms = fit$par)
+out_plot <- ode(y = state0, times = time_grid, func = ode_func_plot,
+                parms = fit$par, method = "rk4")
 smooth_df <- data.frame(time = out_plot[, "time"], Predicted = out_plot[, "X"])
 
+# Observed data
 obs_df <- data.frame(
   time = pan.i$time,
   Observed = pan.i[[pcb.ind]])
 
+# Plot
 plot.uptake <- ggplot() +
   geom_point(data = obs_df, aes(x = time, y = Observed), 
              shape = 21, color = "black", size = 2.5) +
-  geom_line(data = smooth_df, aes(x = time, y = Predicted), 
-            color = "black", linewidth = 0.4) +
+  geom_line(data = smooth_df, aes(x = time, y = Predicted),
+            color = "black", linewidth = 0.5) +
   theme_bw() +
   labs(x = expression(bold("Time (hours)")),
        y = bquote(bold("ng" ~ .(pcb.ind) ~ "/g PAN"))) +
-  theme(axis.text.y = element_text(face = "bold", size = 10),
-        axis.title.y = element_text(face = "bold", size = 10, vjust = 0.1),
-        axis.text.x = element_text(face = "bold", size = 10),
-        axis.title.x = element_text(face = "bold", size = 10),
-        aspect.ratio = 1,
+  theme(aspect.ratio = 3/5,
+        axis.text = element_text(face = "bold", size = 10),
+        axis.title = element_text(face = "bold", size = 11),
         panel.grid = element_blank())
 
 plot.uptake
@@ -242,7 +217,5 @@ plot.uptake
 # Save plot in folder
 plot_filename <- paste0("Output/Plots/Model2/Plot_", pcb.ind, ".png")
 ggsave(plot_filename, plot = plot.uptake, width = 5,
-       height = 5, dpi = 500)
-
-
+       height = 3, dpi = 500)
 
