@@ -80,7 +80,7 @@ conc.wb$time <- wb.data$time
 tPCB.conc.wb <- as.data.frame(rowSums(conc.wb[, 1:172], na.rm = TRUE))
 
 # Select PCBi -------------------------------------------------------------
-pcb.ind <- "PCB15"
+pcb.ind <- "PCB16"
 
 # Remove first observation and use constant Cair
 conc.wb.i2 <- conc.wb[, c("time", pcb.ind)][-1, ]
@@ -113,6 +113,10 @@ start_pars <- c(ku = 80000, ke = 0.01)
 
 # Fit using nonlinear least squares (Levenberg-Marquardt)
 fit <- nls.lm(par = start_pars, fn = residuals_fun)
+
+# Get optimized parameters
+fitted_ku <- fit$par["ku"]
+fitted_ke <- fit$par["ke"]
 
 # Predicted PAN and goodness-of-fit
 sim <- pan_model(pan_times, fitted_ku, fitted_ke)
