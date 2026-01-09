@@ -80,7 +80,7 @@ conc.wb$time <- wb.data$time
 tPCB.conc.wb <- as.data.frame(rowSums(conc.wb[, 1:172], na.rm = TRUE))
 
 # Select PCBi -------------------------------------------------------------
-pcb.ind <- "PCB46"
+pcb.ind <- "PCB187"
 
 # Remove first observation and use constant Cair
 conc.wb.i2 <- conc.wb[, c("time", pcb.ind)][-1, ]
@@ -179,19 +179,10 @@ write.csv(model_summary, file = summary_filename, row.names = FALSE)
 # Finer time grid for plotting
 time_grid <- seq(min(pan_times), max(pan_times), by = 0.1)
 
-# ODE for plotting
-ode_func_plot <- function(t, state, pars) {
-  ku <- pars["ku"]
-  ke <- pars["ke"]
-  X <- state[1]
-  dX <- ku / dpan * Cair_const - ke * X
-  return(list(c(dX)))
-}
-
-state0 <- c(X = 0)
-out_plot <- ode(y = state0, times = time_grid, func = ode_func_plot,
-                parms = fit$par, method = "rk4")
-smooth_df <- data.frame(time = out_plot[, "time"], Predicted = out_plot[, "X"])
+# Smooth model prediction
+smooth_df <- data.frame(
+  time = time_grid,
+  Predicted = pan_model(time_grid, ku, ke))
 
 # Observed data
 obs_df <- data.frame(
@@ -218,4 +209,3 @@ plot.uptake
 plot_filename <- paste0("Output/Plots/Model2/Plot_", pcb.ind, ".png")
 ggsave(plot_filename, plot = plot.uptake, width = 5,
        height = 3, dpi = 500)
-
