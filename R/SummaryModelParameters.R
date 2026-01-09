@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Compile model data generated
 
 # Packages and libraries --------------------------------------------------
