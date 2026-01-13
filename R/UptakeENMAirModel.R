@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #
 # Packages and libraries --------------------------------------------------
 # Install packages
