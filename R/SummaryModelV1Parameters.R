@@ -17,7 +17,7 @@ install.packages("purrr")
 
 # Read generated data -----------------------------------------------------
 # List all files
-files <- list.files(path = "Output/Data/Model2/Summary2", 
+files <- list.files(path = "Output/Data/Model/Summary", 
                     pattern = "^Summary_PCB.*\\.csv$", 
                     full.names = TRUE)
 
@@ -120,7 +120,7 @@ plot.ku <- ggplot(combined_df, aes(x = logKoa, y = log10(ku))) +
 plot.ku
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/logKoa_logku.png", plot = plot.ku,
+ggsave("Output/Plots/Regressions/Model/logKoa_logku.png", plot = plot.ku,
        width = 5, height = 5, dpi = 500)
 
 # (2) d.PCB.air vs log ku
@@ -181,7 +181,7 @@ plot.ku2 <- ggplot(combined_df, aes(x = d.PCB.air, y = log10(ku))) +
 plot.ku2
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/DPCBAir_logku.png", plot = plot.ku2,
+ggsave("Output/Plots/Regressions/Model/DPCBAir_logku.png", plot = plot.ku2,
        width = 5, height = 5, dpi = 500)
 
 # (3) log Koa vs log ke
@@ -242,7 +242,7 @@ plot.ke <- ggplot(combined_df, aes(x = logKoa, y = log10(ke))) +
 plot.ke
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/logKoa_logke.png", plot = plot.ke,
+ggsave("Output/Plots/Regressions/Model/logKoa_logke.png", plot = plot.ke,
        width = 5, height = 5, dpi = 500)
 
 # (4) log Koa vs log Kpan
@@ -303,7 +303,7 @@ plot.kpan <- ggplot(combined_df, aes(x = logKoa, y = logKpan)) +
 plot.kpan
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/logKao_logKpan.png", plot = plot.kpan,
+ggsave("Output/Plots/Regressions/Model/logKao_logKpan.png", plot = plot.kpan,
        width = 5, height = 5, dpi = 500)
 
 # (4) log Koa vs Rs
@@ -339,7 +339,7 @@ plot.Rs <- ggplot(combined_df, aes(x = logKoa, y = Rs)) +
 plot.Rs
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/logKao_Rs.png", plot = plot.Rs,
+ggsave("Output/Plots/Regressions/Model/logKao_Rs.png", plot = plot.Rs,
        width = 10, height = 5, dpi = 500)
 
 
@@ -373,5 +373,5 @@ plot.t90 <- ggplot(combined_df, aes(x = logKoa, y = t90/24)) +
 plot.t90
 
 # Save plot in folder
-ggsave("Output/Plots/Regressions/Model2/logKao_t90.png", plot = plot.t90,
+ggsave("Output/Plots/Regressions/Model/logKao_t90.png", plot = plot.t90,
        width = 10, height = 5, dpi = 500)
